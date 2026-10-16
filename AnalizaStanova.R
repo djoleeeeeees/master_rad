@@ -40,7 +40,7 @@ p_hist <- ggplot(stanovi_ag, aes(Cena_m2)) +
   labs(title = "Distribucija cene stanova", x = "Cena po m²(€)", y = "Broj oglašenih stanova") +
   theme_minimal()
 p_hist
-ggsave("hist_cena.png", p_hist, path = "slike", width = 8, height = 5, dpi = 150)
+ggsave("slike/hist_cena.png", p_hist, width = 8, height = 5, dpi = 150)
 
    # 3.2 Cena po m2 po opštinama boxplot po median
 p_box <- stanovi_ag %>%
@@ -51,7 +51,7 @@ p_box <- stanovi_ag %>%
   labs(title = "Cena po m² po opštinama", x = NULL, y = "Cena po m² (€)") +
   theme_minimal()
 p_box
-ggsave("box_opstine.png", p_box, path = "slike", width = 8, height = 6, dpi = 150)
+ggsave("slike/box_opstine.png", p_box, width = 8, height = 6, dpi = 150)
 
    # 3.3 Medijana cene/m2 po opštini
 tab_opstine <- stanovi_ag %>%
@@ -83,7 +83,34 @@ p_karta <- ggplot() +
   scale_y_continuous(labels = scales::label_number(big.mark = ".", decimal.mark = ",")) +
   theme_minimal()
 p_karta
-ggsave("karta_cena_m2.png", plot = p_karta, path = "slike", width = 9, height = 7, dpi = 150)
+ggsave("slike/karta_cena_m2.png", plot = p_karta, width = 9, height = 7, dpi = 150)
+
+# 4.2.1. Karta prostorne raspodele cene/m2 UVEĆANO
+centar_cenam2 <- st_bbox(c(
+  xmin = 442000, ymin = 4950000, 
+  xmax = 468000, ymax = 4968000
+), crs = 32634)
+uvecano_cenam2 <- st_crop(sf_df, centar_cenam2)
+uvecano_cenam2 <- ggplot() +
+  geom_sf(data = uvecano_cenam2, aes(color = Cena_m2), size = 1, alpha = 0.8) +
+  geom_sf(data = beograd_granice, fill = NA, color = "red", size = 0.3) +
+  scale_color_viridis(
+    option = "plasma", 
+    trans = "log10",
+    name = "Cena (€) / m²",
+    labels = scales::label_number(big.mark = ".", decimal.mark = ",")
+  ) +
+  coord_sf(
+    xlim = c(442000, 468000), 
+    ylim = c(4950000, 4968000), 
+    expand = FALSE, 
+    datum = 32634
+  ) +
+  scale_x_continuous(labels = scales::label_number(big.mark = ".", decimal.mark = ",")) +
+  scale_y_continuous(labels = scales::label_number(big.mark = ".", decimal.mark = ",")) +
+  theme_minimal()
+uvecano_cenam2
+ggsave("slike/uvecano_cenam2.png", plot = uvecano_cenam2, width = 9, height = 7, dpi = 150)
 
    # 4.3 Globalni Moran's I – prostorna autokorelacija cene
 coords  <- st_coordinates(sf_df)
@@ -92,35 +119,44 @@ nb      <- knn2nb(knn8)
 listw   <- nb2listw(nb, style = "W")
 
 moran_cena <- moran.test(sf_df$Cena_m2, listw, zero.policy = TRUE)
+moran_cena
 
    # 4.4 Interaktivna karta
-
 sf_df_wgs <- sf_df %>%
   mutate(
     Kategorija_cene = cut(
       Cena_m2, 
       breaks = c(-Inf, 2000, 3000, 4000, 5000, Inf),
-      labels = c("До 2000 €", "2001 - 3000 €", "3001 - 4000 €", "4001 - 5000 €", "Преко 5000 €")
+      labels = c("До 2000 €", "2001 - 3000 €", "3001 - 4000 €", "4001 - 5000 €", "Preko 5000 €")
     )
   ) %>%
   st_transform(crs = 4326)
 
-karta <- mapview(
+custom_popup_karta <- paste0(
+  "<div style='line-height: 2;'>",
+  "<b>Šifra oglasa: </b>", sf_df_wgs$Šifra_oglasa, "<br>",
+  "<b>Opština: </b>", sf_df_wgs$Opština, "<br>",
+  "<b>Naselje: </b>", sf_df_wgs$Naselje, "<br>",
+  "<b>Ulica: </b>", sf_df_wgs$Ulica, "<br>",
+  "<b>Cena: </b>", format(round(sf_df_wgs$Cena), big.mark = "."), " €<br>",
+  "<b>Kvadratura: </b>", sf_df_wgs$Kvadratura, " m²<br>",
+  "<b>Cena po m²: </b>", format(round(sf_df_wgs$Cena_m2), big.mark = "."), " €",
+  "</div>"
+)
+
+interakt_karta <- mapview(
   sf_df_wgs, 
   zcol = "Kategorija_cene",
-  layer.name = "Цена по m² (€)",
+  layer.name = "Cena po m² (€)",
   col.regions = brewer.pal(5, "YlOrRd"),
   alpha.regions = 0.8,
   cex = 4,
-  popup = popupTable(
-    sf_df_wgs, 
-    zcol = c("Šifra_oglasa", "Ulica", "Opština", "Cena", "Kvadratura", "Cena_m2"), 
-    feature.id = FALSE
-  )
+  popup = custom_popup_karta,
+  map.types = c("OpenTopoMap","Esri.WorldImagery","OpenStreetMap")
 )
-karta
-# mapshot(karta, file = normalizePath("web/karta.html", mustWork = FALSE))
-# saveWidget(karta@map, "web/karta.html", selfcontained = TRUE) #html
+interakt_karta
+mapshot(interakt_karta, file = normalizePath("web/interakt_karta.html", mustWork = FALSE))
+saveWidget(interakt_karta@map, "web/interakt_karta.html", selfcontained = TRUE)
 
     # 4.5. Dijagrami rasejanja
 BLUE <- "#2c7fb8"
@@ -158,7 +194,7 @@ p1 <- ggplot(stanovi_ag, aes(km_centar, Cena_m2)) +
         panel.grid.major = element_line(color = "grey90"),
         panel.grid.minor = element_blank())
 p1
-ggsave("01_rastojanje_centar.png", plot = p1, path = "slike", width = 9, height = 5.5, dpi = 140)
+ggsave("slike/01_rastojanje_centar.png", plot = p1, width = 9, height = 5.5, dpi = 140)
 
 trend_muzeji_pozorista <- stanovi_ag %>%
   mutate(pojas = cut(km_muzeji_pozorista, breaks = seq(min(km_muzeji_pozorista, na.rm = TRUE), max(km_muzeji_pozorista, na.rm = TRUE), length.out = 26))) %>%
@@ -179,7 +215,7 @@ p2 <- ggplot(stanovi_ag, aes(km_muzeji_pozorista, Cena_m2)) +
         panel.grid.major = element_line(color = "grey90"),
         panel.grid.minor = element_blank())
 p2
-ggsave("02_rastojanje_muzeji_pozorista.png", plot = p2, path = "slike", width = 9, height = 5.5, dpi = 140)
+ggsave("slike/02_rastojanje_muzeji_pozorista.png", plot = p2, width = 9, height = 5.5, dpi = 140)
 
 trend_vrtici <- stanovi_ag %>%
   mutate(pojas = cut(km_vrtici, breaks = seq(min(km_vrtici, na.rm = TRUE), max(km_vrtici, na.rm = TRUE), length.out = 26))) %>%
@@ -200,7 +236,7 @@ p3 <- ggplot(stanovi_ag, aes(km_vrtici, Cena_m2)) +
         panel.grid.major = element_line(color = "grey90"),
         panel.grid.minor = element_blank())
 p3
-ggsave("03_rastojanje_vrtici.png", plot = p3, path = "slike", width = 9, height = 5.5, dpi = 140)
+ggsave("slike/03_rastojanje_vrtici.png", plot = p3, width = 9, height = 5.5, dpi = 140)
 
 trend_skole <- stanovi_ag %>%
   mutate(pojas = cut(km_skole, breaks = seq(min(km_skole, na.rm = TRUE), max(km_skole, na.rm = TRUE), length.out = 26))) %>%
@@ -221,7 +257,7 @@ p4 <- ggplot(stanovi_ag, aes(km_skole, Cena_m2)) +
         panel.grid.major = element_line(color = "grey90"),
         panel.grid.minor = element_blank())
 p4
-ggsave("04_rastojanje_skole.png", plot = p4, path = "slike", width = 9, height = 5.5, dpi = 140)
+ggsave("slike/04_rastojanje_skole.png", plot = p4, width = 9, height = 5.5, dpi = 140)
 
 trend_verski_objekti <- stanovi_ag %>%
   mutate(pojas = cut(km_verski_objekti, breaks = seq(min(km_verski_objekti, na.rm = TRUE), max(km_verski_objekti, na.rm = TRUE), length.out = 26))) %>%
@@ -242,7 +278,7 @@ p5 <- ggplot(stanovi_ag, aes(km_verski_objekti, Cena_m2)) +
         panel.grid.major = element_line(color = "grey90"),
         panel.grid.minor = element_blank())
 p5
-ggsave("05_rastojanje_verski_objekti.png", plot = p5, path = "slike", width = 9, height = 5.5, dpi = 140)
+ggsave("slike/05_rastojanje_verski_objekti.png", plot = p5, width = 9, height = 5.5, dpi = 140)
 
 trend_stajalista <- stanovi_ag %>%
   mutate(pojas = cut(km_stajalista, breaks = seq(min(km_stajalista, na.rm = TRUE), max(km_stajalista, na.rm = TRUE), length.out = 26))) %>%
@@ -263,7 +299,7 @@ p6 <- ggplot(stanovi_ag, aes(km_stajalista, Cena_m2)) +
         panel.grid.major = element_line(color = "grey90"),
         panel.grid.minor = element_blank())
 p6
-ggsave("06_rastojanje_stajalista.png", plot = p6, path = "slike", width = 9, height = 5.5, dpi = 140)
+ggsave("slike/06_rastojanje_stajalista.png", plot = p6, width = 9, height = 5.5, dpi = 140)
 
 trend_parkovi <- stanovi_ag %>%
   mutate(pojas = cut(km_parkovi, breaks = seq(min(km_parkovi, na.rm = TRUE), max(km_parkovi, na.rm = TRUE), length.out = 26))) %>%
@@ -284,7 +320,7 @@ p7 <- ggplot(stanovi_ag, aes(km_parkovi, Cena_m2)) +
         panel.grid.major = element_line(color = "grey90"),
         panel.grid.minor = element_blank())
 p7
-ggsave("07_rastojanje_parkovi.png", plot = p7, path = "slike", width = 9, height = 5.5, dpi = 140)
+ggsave("slike/07_rastojanje_parkovi.png", plot = p7, width = 9, height = 5.5, dpi = 140)
 
 trend_sume <- stanovi_ag %>%
   mutate(pojas = cut(km_sume, breaks = seq(min(km_sume, na.rm = TRUE), max(km_sume, na.rm = TRUE), length.out = 26))) %>%
@@ -305,7 +341,7 @@ p8 <- ggplot(stanovi_ag, aes(km_sume, Cena_m2)) +
         panel.grid.major = element_line(color = "grey90"),
         panel.grid.minor = element_blank())
 p8
-ggsave("08_rastojanje_sume.png", plot = p8, path = "slike", width = 9, height = 5.5, dpi = 140)
+ggsave("slike/08_rastojanje_sume.png", plot = p8, width = 9, height = 5.5, dpi = 140)
 
 trend_vode <- stanovi_ag %>%
   mutate(pojas = cut(km_vode, breaks = seq(min(km_vode, na.rm = TRUE), max(km_vode, na.rm = TRUE), length.out = 26))) %>%
@@ -326,7 +362,7 @@ p9 <- ggplot(stanovi_ag, aes(km_vode, Cena_m2)) +
         panel.grid.major = element_line(color = "grey90"),
         panel.grid.minor = element_blank())
 p9
-ggsave("09_rastojanje_vode.png", plot = p9, path = "slike", width = 9, height = 5.5, dpi = 140)
+ggsave("slike/09_rastojanje_vode.png", plot = p9, width = 9, height = 5.5, dpi = 140)
 
 # svih 9 dijagrama
 p_svi <- 
@@ -385,7 +421,7 @@ sp_corr <- ggcorrplot(
 
 print(sp_corr)
 
-ggsave("sp_corr.png", plot = sp_corr, path = "slike", width = 9.5, height = 7.5, dpi = 150)
+ggsave("slike/sp_corr.png", plot = sp_corr, width = 9.5, height = 7.5, dpi = 150)
 
 ## ---------------------------------------------------------------------------
 ## 5. Kreiranje modela
@@ -584,7 +620,7 @@ p_pred_vs_stvarno_mreza <- ggplot(df_mreza, aes(x = Stvarna_cena, y = Predviđen
   )
 
 print(p_pred_vs_stvarno_mreza)
-ggsave("pred_vs_stvarno_mreza.png", plot = p_pred_vs_stvarno_mreza, path = "slike", width = 12, height = 4.5, dpi = 300)
+ggsave("slike/pred_vs_stvarno_mreza.png", plot = p_pred_vs_stvarno_mreza, width = 12, height = 4.5, dpi = 300)
 
 # 5.11. Poređenje R2, RMSE, MAE
 sve_performanse <- sve_performanse %>%
@@ -673,7 +709,7 @@ p_cv <- ggplot(sf_df) +
   )
 
 print(p_cv)
-ggsave("prostorni_foldovi.png", plot = p_cv, path = "slike", width = 8, height = 6, dpi = 300)
+ggsave("slike/prostorni_foldovi.png", plot = p_cv, width = 8, height = 6, dpi = 300)
 
 ## ---------------------------------------------------------------------------
 ## 6. Značaj promenljivih (Feature Importance) - Zadatak 6
@@ -694,10 +730,10 @@ p_imp <- ggplot(head(imp_df, 15), aes(reorder(Promenljiva, Znacaj_rel), Znacaj_r
   geom_text(aes(label = paste0(Znacaj_rel, "%")), hjust = -0.1, size = 3.2, fontface = "bold") +
   coord_flip() +
   scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
-  labs(title = "Prvih 15 najvažnijih prediktora (Kombinovani model)", x = NULL, y = "Relativni značaj (%)") +
+  labs(x = NULL, y = "Relativni značaj (%)") +
   theme_minimal()
 p_imp
-ggsave("znacaj_promenljivih.png", plot = p_imp, path = "slike", width = 8, height = 5.5, dpi = 300)
+ggsave("slike/znacaj_promenljivih.png", plot = p_imp, width = 8, height = 5.5, dpi = 300)
 
 ## ---------------------------------------------------------------------------
 ## 7. Globalni moran's I indeks (RF i XGBoost - Prostorna CV)
@@ -729,13 +765,12 @@ moran_xgb_pun  <- moran.test(rez_xgb_pun,  listw, zero.policy = TRUE)
 morans_globalni <- data.frame(
   Model = c("Samo stan", "Samo lokacija", "Stan + lokacija"),
   `RF_Rnd_I` = round(c(moran_rnd_stan$estimate[1], moran_rnd_lok$estimate[1], moran_rnd_pun$estimate[1]), 3),
-  `RF_Rnd_Z` = round(c(moran_rnd_stan$statistic, moran_rnd_lok$statistic, moran_rnd_pun$statistic), 3),
   `RF_Sp_I` = round(c(moran_rf_stan$estimate[1], moran_rf_lok$estimate[1], moran_rf_pun$estimate[1]), 3),
-  `RF_Sp_Z` = round(c(moran_rf_stan$statistic, moran_rf_lok$statistic, moran_rf_pun$statistic), 3),
-  `XGB_Sp_I`= round(c(moran_xgb_stan$estimate[1], moran_xgb_lok$estimate[1], moran_xgb_pun$estimate[1]), 3),
-  `XGB_Sp_Z` = round(c(moran_xgb_stan$statistic, moran_xgb_lok$statistic, moran_xgb_pun$statistic), 3)
+  `XGB_Sp_I`= round(c(moran_xgb_stan$estimate[1], moran_xgb_lok$estimate[1], moran_xgb_pun$estimate[1]), 3)
+
 )
 
+print(morans_globalni)
 print(morans_globalni)
 write.csv(morans_globalni, "exceli/morans_globalni.csv", row.names = FALSE)
 
@@ -745,51 +780,185 @@ sf_df$rezidual_rf_sp  <- podaci$Cena_m2 - pred_all_sp
 sf_df$rezidual_xgb_sp <- podaci$Cena_m2 - pred_all_sp_xgb
 
 p1_mi <- ggplot(sf_df) +
-  geom_sf(aes(color = rezidual_rf_rnd), size = 0.6) +
+  geom_sf(data = beograd_granice, fill = NA, color = "grey30", size = 0.3) +
+  geom_sf(aes(color = rezidual_rf_rnd), size = 0.6, alpha = 0.8) +
   scale_color_gradient2(
-    low = "#2166ac", mid = "grey90", high = "#b2182b", midpoint = 0,
+    low = "#2166ac", mid = "white", high = "#b2182b", midpoint = 0,
+    limits = c(-1500, 1500), 
+    oob = scales::squish,
     name = "Rezidual (EUR)",
-    guide = guide_colorbar(barwidth = unit(12, "cm"), barheight = unit(0.5, "cm"), title.position = "top", title.hjust = 0.5)
+    guide = guide_colorbar(
+      barwidth = unit(6, "cm"), 
+      barheight = unit(0.6, "cm"), 
+      title.position = "top", 
+      title.hjust = 0.5
+    )
   ) +
   labs(title = "RF - Slučajna CV") +
   coord_sf(datum = 32634) +
   scale_x_continuous(labels = scales::label_number(big.mark = ".", decimal.mark = ",")) +
   scale_y_continuous(labels = scales::label_number(big.mark = ".", decimal.mark = ",")) +
   theme_minimal() +
-  theme(plot.title = element_text(face = "bold", hjust = 0.5))
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    legend.position = "bottom"
+  )
+p1_mi
 
 p2_mi <- ggplot(sf_df) +
-  geom_sf(aes(color = rezidual_rf_sp), size = 0.6) +
+  geom_sf(data = beograd_granice, fill = NA, color = "grey30", size = 0.3) +
+  geom_sf(aes(color = rezidual_rf_sp), size = 0.6, alpha = 0.8) +
   scale_color_gradient2(
-    low = "#2166ac", mid = "grey90", high = "#b2182b", midpoint = 0,
+    low = "#2166ac", mid = "white", high = "#b2182b", midpoint = 0,
+    limits = c(-1500, 1500), 
+    oob = scales::squish,
     name = "Rezidual (EUR)",
-    guide = guide_colorbar(barwidth = unit(12, "cm"), barheight = unit(0.5, "cm"), title.position = "top", title.hjust = 0.5)
+    guide = guide_colorbar(
+      barwidth = unit(6, "cm"), 
+      barheight = unit(0.6, "cm"), 
+      title.position = "top", 
+      title.hjust = 0.5
+    )
   ) +
   labs(title = "RF - Prostorna CV") +
   coord_sf(datum = 32634) +
   scale_x_continuous(labels = scales::label_number(big.mark = ".", decimal.mark = ",")) +
   scale_y_continuous(labels = scales::label_number(big.mark = ".", decimal.mark = ",")) +
   theme_minimal() +
-  theme(plot.title = element_text(face = "bold", hjust = 0.5))
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    legend.position = "bottom"
+  )
+p2_mi
 
 p3_mi <- ggplot(sf_df) +
-  geom_sf(aes(color = rezidual_xgb_sp), size = 0.6) +
+  geom_sf(data = beograd_granice, fill = NA, color = "grey30", size = 0.3) +
+  geom_sf(aes(color = rezidual_xgb_sp), size = 0.6, alpha = 0.8) +
   scale_color_gradient2(
-    low = "#2166ac", mid = "grey90", high = "#b2182b", midpoint = 0,
+    low = "#2166ac", mid = "white", high = "#b2182b", midpoint = 0,
+    limits = c(-1500, 1500), 
+    oob = scales::squish,
     name = "Rezidual (EUR)",
-    guide = guide_colorbar(barwidth = unit(12, "cm"), barheight = unit(0.5, "cm"), title.position = "top", title.hjust = 0.5)
+    guide = guide_colorbar(
+      barwidth = unit(6, "cm"), 
+      barheight = unit(0.6, "cm"), 
+      title.position = "top", 
+      title.hjust = 0.5
+    )
   ) +
   labs(title = "XGBoost - Prostorna CV") +
   coord_sf(datum = 32634) +
   scale_x_continuous(labels = scales::label_number(big.mark = ".", decimal.mark = ",")) +
   scale_y_continuous(labels = scales::label_number(big.mark = ".", decimal.mark = ",")) +
   theme_minimal() +
-  theme(plot.title = element_text(face = "bold", hjust = 0.5))
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    legend.position = "bottom"
+  )
+p3_mi
 
-p_grid_sve <- (p1_mi | p2_mi | p3_mi) + plot_layout(guides = "collect") & theme(legend.position = "bottom")
+ggsave("slike/p1_mi.png", plot = p1_mi, width = 11, height = 7, dpi = 300)
+ggsave("slike/p2_mi.png", plot = p2_mi, width = 11, height = 7, dpi = 300)
+ggsave("slike/p3_mi.png", plot = p3_mi, width = 11, height = 7, dpi = 300)
 
-print(p_grid_sve)
-ggsave("reziduali_sve_mape_grid.png", plot = p_grid_sve, path = "slike", width = 16, height = 6.5, dpi = 300)
+# Vizuelizacija UVEĆANO
+centar_cenam2 <- st_bbox(c(
+  xmin = 442000, ymin = 4950000,  
+  xmax = 468000, ymax = 4968000
+), crs = 32634)
+uvecano_cenam2 <- st_crop(sf_df, centar_cenam2)
+uvecano_granice <- st_crop(beograd_granice, centar_cenam2)
+p1_mi_uvecano <- ggplot() +
+  geom_sf(data = uvecano_cenam2, aes(color = rezidual_rf_rnd), size = 1, alpha = 0.8) +
+  geom_sf(data = uvecano_granice, fill = NA, color = "grey30", size = 0.3) +
+  scale_color_gradient2(
+    low = "#2166ac", mid = "grey90", high = "#b2182b", midpoint = 0,
+    limits = c(-1500, 1500),
+    oob = scales::squish,
+    name = "Rezidual (EUR)",
+    guide = guide_colorbar(
+      barwidth = unit(6, "cm"), 
+      barheight = unit(0.6, "cm"), 
+      title.position = "top", 
+      title.hjust = 0.5
+    )
+  ) +
+  coord_sf(
+    xlim = c(442000, 468000),  
+    ylim = c(4950000, 4968000),  
+    expand = FALSE,  
+    datum = 32634
+  ) +
+  scale_x_continuous(labels = scales::label_number(big.mark = ".", decimal.mark = ",")) +
+  scale_y_continuous(labels = scales::label_number(big.mark = ".", decimal.mark = ",")) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    legend.position = "bottom"
+  )
+p1_mi_uvecano
+p2_mi_uvecano <- ggplot() +
+  geom_sf(data = uvecano_cenam2, aes(color = rezidual_rf_sp), size = 1, alpha = 0.8) +
+  geom_sf(data = uvecano_granice, fill = NA, color = "grey30", size = 0.3) +
+  scale_color_gradient2(
+    low = "#2166ac", mid = "grey90", high = "#b2182b", midpoint = 0,
+    limits = c(-1500, 1500),
+    oob = scales::squish,
+    name = "Rezidual (EUR)",
+    guide = guide_colorbar(
+      barwidth = unit(6, "cm"), 
+      barheight = unit(0.6, "cm"), 
+      title.position = "top", 
+      title.hjust = 0.5
+    )
+  ) +
+  coord_sf(
+    xlim = c(442000, 468000),  
+    ylim = c(4950000, 4968000),  
+    expand = FALSE,  
+    datum = 32634
+  ) +
+  scale_x_continuous(labels = scales::label_number(big.mark = ".", decimal.mark = ",")) +
+  scale_y_continuous(labels = scales::label_number(big.mark = ".", decimal.mark = ",")) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    legend.position = "bottom"
+  )
+p2_mi_uvecano
+p3_mi_uvecano <- ggplot() +
+  geom_sf(data = uvecano_cenam2, aes(color = rezidual_xgb_sp), size = 1, alpha = 0.8) +
+  geom_sf(data = uvecano_granice, fill = NA, color = "grey30", size = 0.3) +
+  scale_color_gradient2(
+    low = "#2166ac", mid = "grey90", high = "#b2182b", midpoint = 0,
+    limits = c(-1500, 1500),
+    oob = scales::squish,
+    name = "Rezidual (EUR)",
+    guide = guide_colorbar(
+      barwidth = unit(6, "cm"), 
+      barheight = unit(0.6, "cm"), 
+      title.position = "top", 
+      title.hjust = 0.5
+    )
+  ) +
+  coord_sf(
+    xlim = c(442000, 468000),  
+    ylim = c(4950000, 4968000),  
+    expand = FALSE,  
+    datum = 32634
+  ) +
+  scale_x_continuous(labels = scales::label_number(big.mark = ".", decimal.mark = ",")) +
+  scale_y_continuous(labels = scales::label_number(big.mark = ".", decimal.mark = ",")) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    legend.position = "bottom"
+  )
+p3_mi_uvecano
+ggsave("slike/p1_mi_uvecano.png", plot = p1_mi_uvecano, width = 8, height = 6, dpi = 300)
+ggsave("slike/p2_mi_uvecano.png", plot = p2_mi_uvecano, width = 8, height = 6, dpi = 300)
+ggsave("slike/p3_mi_uvecano.png", plot = p3_mi_uvecano, width = 8, height = 6, dpi = 300)
+
 ## ---------------------------------------------------------------------------
 ## 8. Lokacijski premijum (Nad RF modelom)
 
@@ -906,6 +1075,7 @@ fikt_stan <- fikt_stan %>%
 
 sf_fikt <- st_as_sf(fikt_stan, coords = c("Y", "X"), crs = 32634, remove = FALSE)
 
+# vizuelizacija karata
 karta_cene_prem <- ggplot() +
   geom_sf(data = sf_fikt, aes(color = proc_cenam2), size = 1, alpha = 0.85) +
   geom_sf(data = beograd_granice, fill = NA, color = "red", size = 0.3) +
@@ -922,7 +1092,6 @@ karta_cene_prem <- ggplot() +
   scale_y_continuous(labels = scales::label_number(big.mark = ".", decimal.mark = ",")) +
   theme_minimal()
 karta_cene_prem
-ggsave("slike/karta_cene_prem.png", plot = karta_cene_prem, width = 8, height = 6, dpi = 300)
 
 karta_lok_prem <- ggplot() +
   geom_sf(data = sf_fikt, aes(color = premijum_proc), size = 1, alpha = 0.85) +
@@ -939,9 +1108,63 @@ karta_lok_prem <- ggplot() +
   scale_y_continuous(labels = scales::label_number(big.mark = ".", decimal.mark = ",")) +
   theme_minimal()
 karta_lok_prem
+ggsave("slike/karta_cene_prem.png", plot = karta_cene_prem, width = 8, height = 6, dpi = 300)
 ggsave("slike/karta_lok_prem.png", plot = karta_lok_prem, width = 8, height = 6, dpi = 300)
 
-# Agregacije po opštinama (opciono sam uradio)
+range(sf_fikt$premijum_proc, na.rm = TRUE)
+sf_fikt[which.min(sf_fikt$premijum_proc), ]
+sf_fikt[which.max(sf_fikt$premijum_proc), ]
+
+# Vizuelizacija UVEĆANO
+centar_cenam2 <- st_bbox(c(
+  xmin = 442000, ymin = 4950000,  
+  xmax = 468000, ymax = 4968000
+), crs = 32634)
+uvecano_cene_prem <- st_crop(sf_fikt, centar_cenam2)
+karta_cene_prem_uvecano <- ggplot() +
+  geom_sf(data = uvecano_cene_prem, aes(color = proc_cenam2), size = 1, alpha = 0.8) +
+  geom_sf(data = beograd_granice, fill = NA, color = "red", size = 0.3) +
+  scale_color_viridis_c(
+    option = "plasma", 
+    name = "Procenjena cena po m²",
+    labels = scales::label_number(big.mark = ".", decimal.mark = ",")
+  ) +
+  coord_sf(
+    xlim = c(442000, 468000),  
+    ylim = c(4950000, 4968000),  
+    expand = FALSE,  
+    datum = 32634
+  ) +
+  scale_x_continuous(labels = scales::label_number(big.mark = ".", decimal.mark = ",")) +
+  scale_y_continuous(labels = scales::label_number(big.mark = ".", decimal.mark = ",")) +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold", hjust = 0.5))
+karta_cene_prem_uvecano
+
+uvecano_lok_prem <- st_crop(sf_fikt, centar_cenam2)
+karta_lok_prem_uvecano <- ggplot() +
+  geom_sf(data = uvecano_lok_prem, aes(color = premijum_proc), size = 1, alpha = 0.8) +
+  geom_sf(data = beograd_granice, fill = NA, color = "red", size = 0.3) +
+  scale_color_gradient2(
+    low = "#d73027", mid = "#ffffbf", high = "#1a9850",
+    midpoint = 0, name = "Premijum (%)"
+  ) +
+  coord_sf(
+    xlim = c(442000, 468000),  
+    ylim = c(4950000, 4968000),  
+    expand = FALSE,  
+    datum = 32634
+  ) +
+  scale_x_continuous(labels = scales::label_number(big.mark = ".", decimal.mark = ",")) +
+  scale_y_continuous(labels = scales::label_number(big.mark = ".", decimal.mark = ",")) +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold", hjust = 0.5))
+karta_lok_prem_uvecano
+
+ggsave("slike/karta_cene_prem_uvecano.png", plot = karta_cene_prem_uvecano, width = 9, height = 7, dpi = 150)
+ggsave("slike/karta_lok_prem_uvecano.png", plot = karta_lok_prem_uvecano, width = 9, height = 7, dpi = 150)
+
+# Premijum po opštinama
 prem_opstine <- fikt_stan %>%
   group_by(Opština) %>%
   summarise(
@@ -957,22 +1180,26 @@ write.csv(prem_opstine, "exceli/premijum_po_opstinama.csv", row.names = FALSE)
 # interaktivna karta
 sg_wgs_prem <- st_transform(sf_fikt, 4326)
 custom_popup <- paste0(
-  "<b>", sg_wgs_prem$Naselje, "</b><br>", sg_wgs_prem$Ulica,
-  "<br>Procenjena cena: ", format(round(sg_wgs_prem$proc_cenam2), big.mark = "."), " €",
-  "<br>Premijum: ", round(sg_wgs_prem$premijum_proc, 1), " %"
+  "<div style='line-height: 2;'>",
+  "<b>Opština: </b>", sg_wgs_prem$Opština, "<br>",
+  "<b>Naselje: </b>", sg_wgs_prem$Naselje, "<br>",
+  "<b>Ulica: </b>", sg_wgs_prem$Ulica, "<br>",
+  "<b>Procenjena cena: </b>", format(round(sg_wgs_prem$proc_cenam2), big.mark = "."), " €<br>",
+  "<b>Premijum: </b>", round(sg_wgs_prem$premijum_proc, 2), " %"
 )
 interakt_prem <- mapview(
   sg_wgs_prem,
   zcol = "premijum_proc",
   layer.name = "Premijum (%)",
-  col.regions = colorRampPalette(c("#d73027", "#ffffbf", "#1a9850"))(100),
+  col.regions = colorRampPalette(c("#d73027", "#ffffbf", "#006837"))(100),
   cex = 4,            
   alpha.regions = 0.8,                        
-  popup = custom_popup                        
+  popup = custom_popup,                        
+  map.types = c("OpenTopoMap", "Esri.WorldImagery", "OpenStreetMap")
 )
 interakt_prem
-# mapshot(interakt_prem, file = normalizePath("web/interakt_prem.html", mustWork = FALSE))
-# saveWidget(interakt_prem@map, "web/interakt_prem.html", selfcontained = TRUE) #html
+mapshot(interakt_prem, file = normalizePath("web/interakt_prem.html", mustWork = FALSE))
+saveWidget(interakt_prem@map, "web/interakt_prem.html", selfcontained = TRUE)
 
 # Dijag rasejanja
 dg8_centar <- ggplot(fikt_stan, aes(x = rast_centar_ag / 1000, y = premijum_proc)) +
@@ -1152,8 +1379,4 @@ ggsave(
 )
 
 ## ---------------------------------------------------------------------------
-
-## VIZUELIZACIJA
-
-# prebaci svu vizuelizaciju ovde
 
