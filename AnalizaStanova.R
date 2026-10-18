@@ -1076,7 +1076,7 @@ fikt_stan <- fikt_stan %>%
 sf_fikt <- st_as_sf(fikt_stan, coords = c("Y", "X"), crs = 32634, remove = FALSE)
 
 # vizuelizacija karata
-karta_cene_prem <- ggplot() +
+karta_cene_pred <- ggplot() +
   geom_sf(data = sf_fikt, aes(color = proc_cenam2), size = 1, alpha = 0.85) +
   geom_sf(data = beograd_granice, fill = NA, color = "red", size = 0.3) +
   scale_color_viridis_c(
@@ -1091,7 +1091,7 @@ karta_cene_prem <- ggplot() +
   scale_x_continuous(labels = scales::label_number(big.mark = ".", decimal.mark = ",")) +
   scale_y_continuous(labels = scales::label_number(big.mark = ".", decimal.mark = ",")) +
   theme_minimal()
-karta_cene_prem
+karta_cene_pred
 
 karta_lok_prem <- ggplot() +
   geom_sf(data = sf_fikt, aes(color = premijum_proc), size = 1, alpha = 0.85) +
@@ -1108,7 +1108,7 @@ karta_lok_prem <- ggplot() +
   scale_y_continuous(labels = scales::label_number(big.mark = ".", decimal.mark = ",")) +
   theme_minimal()
 karta_lok_prem
-ggsave("slike/karta_cene_prem.png", plot = karta_cene_prem, width = 8, height = 6, dpi = 300)
+ggsave("slike/karta_cene_pred.png", plot = karta_cene_pred, width = 8, height = 6, dpi = 300)
 ggsave("slike/karta_lok_prem.png", plot = karta_lok_prem, width = 8, height = 6, dpi = 300)
 
 range(sf_fikt$premijum_proc, na.rm = TRUE)
@@ -1120,9 +1120,10 @@ centar_cenam2 <- st_bbox(c(
   xmin = 442000, ymin = 4950000,  
   xmax = 468000, ymax = 4968000
 ), crs = 32634)
-uvecano_cene_prem <- st_crop(sf_fikt, centar_cenam2)
-karta_cene_prem_uvecano <- ggplot() +
-  geom_sf(data = uvecano_cene_prem, aes(color = proc_cenam2), size = 1, alpha = 0.8) +
+
+uvecano_cene_pred <- st_crop(sf_fikt, centar_cenam2)
+karta_cene_pred_uvecano <- ggplot() +
+  geom_sf(data = uvecano_cene_pred, aes(color = proc_cenam2), size = 1, alpha = 0.8) +
   geom_sf(data = beograd_granice, fill = NA, color = "red", size = 0.3) +
   scale_color_viridis_c(
     option = "plasma", 
@@ -1139,7 +1140,7 @@ karta_cene_prem_uvecano <- ggplot() +
   scale_y_continuous(labels = scales::label_number(big.mark = ".", decimal.mark = ",")) +
   theme_minimal() +
   theme(plot.title = element_text(face = "bold", hjust = 0.5))
-karta_cene_prem_uvecano
+karta_cene_pred_uvecano
 
 uvecano_lok_prem <- st_crop(sf_fikt, centar_cenam2)
 karta_lok_prem_uvecano <- ggplot() +
@@ -1160,7 +1161,7 @@ karta_lok_prem_uvecano <- ggplot() +
   theme_minimal() +
   theme(plot.title = element_text(face = "bold", hjust = 0.5))
 karta_lok_prem_uvecano
-ggsave("slike/karta_cene_prem_uvecano.png", plot = karta_cene_prem_uvecano, width = 9, height = 7, dpi = 150)
+ggsave("slike/karta_cene_pred_uvecano.png", plot = karta_cene_pred_uvecano, width = 9, height = 7, dpi = 150)
 ggsave("slike/karta_lok_prem_uvecano.png", plot = karta_lok_prem_uvecano, width = 9, height = 7, dpi = 150)
 
 # Premijum po opštinama
@@ -1169,10 +1170,10 @@ prem_opstine <- fikt_stan %>%
   summarise(
     Broj_lokacija         = n(),
     Medijana_Cena_fikt    = round(median(proc_cenam2)),
-    Prosečni_premijum_proc = round(median(premijum_proc), 2),
+    Medijana_premijum_proc = round(median(premijum_proc), 2),
     .groups               = "drop"
   ) %>%
-  arrange(desc(Prosečni_premijum_proc))
+  arrange(desc(Medijana_premijum_proc))
 prem_opstine
 write.csv(prem_opstine, "exceli/premijum_po_opstinama.csv", row.names = FALSE)
 
