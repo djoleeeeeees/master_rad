@@ -1160,7 +1160,6 @@ karta_lok_prem_uvecano <- ggplot() +
   theme_minimal() +
   theme(plot.title = element_text(face = "bold", hjust = 0.5))
 karta_lok_prem_uvecano
-
 ggsave("slike/karta_cene_prem_uvecano.png", plot = karta_cene_prem_uvecano, width = 9, height = 7, dpi = 150)
 ggsave("slike/karta_lok_prem_uvecano.png", plot = karta_lok_prem_uvecano, width = 9, height = 7, dpi = 150)
 
@@ -1169,8 +1168,8 @@ prem_opstine <- fikt_stan %>%
   group_by(Opština) %>%
   summarise(
     Broj_lokacija         = n(),
-    Prosečna_Cena_fikt    = round(mean(proc_cenam2)),
-    Prosečni_premijum_proc = round(mean(premijum_proc), 2),
+    Medijana_Cena_fikt    = round(median(proc_cenam2)),
+    Prosečni_premijum_proc = round(median(premijum_proc), 2),
     .groups               = "drop"
   ) %>%
   arrange(desc(Prosečni_premijum_proc))
