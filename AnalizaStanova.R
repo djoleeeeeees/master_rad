@@ -17,8 +17,8 @@ if(!dir.exists("slike")) dir.create("slike")
 if(!dir.exists("exceli")) dir.create("exceli")
 if(!dir.exists("web")) dir.create("web")
 
-set.seed(123) ## fiksiranje vrednosti
-CRS_UTM <- 32634   # EPSG:32634 = WGS84 / UTM zone 34N (Beograd)
+set.seed(123)
+CRS_UTM <- 32634
 
 beograd_granice <- st_read("beograd_granice.shp")
 
@@ -42,7 +42,7 @@ p_hist <- ggplot(stanovi_ag, aes(Cena_m2)) +
 p_hist
 ggsave("slike/hist_cena.png", p_hist, width = 8, height = 5, dpi = 150)
 
-   # 3.2 Cena po m2 po opštinama boxplot po median
+   # 3.2 Cena po m2 po opštinama boxplot po medijani
 p_box <- stanovi_ag %>%
   mutate(Opština = fct_reorder(Opština, Cena_m2, median)) %>%
   ggplot(aes(Opština, Cena_m2)) +
@@ -377,7 +377,7 @@ ggsave(
   height = 10,
   dpi = 300
 )
-   # 4.6. Spearmanova korelacija ( CENA M2 VS RASTOJANJA X 9)
+   # 4.6. Spirmanova korelacija ( CENA M2 VS RASTOJANJA X 9)
 
 vars_korelacija <- stanovi_ag %>%
   select(
@@ -712,7 +712,7 @@ print(p_cv)
 ggsave("slike/prostorni_foldovi.png", plot = p_cv, width = 8, height = 6, dpi = 300)
 
 ## ---------------------------------------------------------------------------
-## 6. Značaj promenljivih (Feature Importance) - Zadatak 6
+## 6. Značaj promenljivih
 
 form_all <- as.formula(paste("Cena_m2 ~", paste(sprintf("`%s`", c(prom_stan, prom_lok)), collapse = " + ")))
 
@@ -983,7 +983,7 @@ rf_kombinovani <- ranger(
   importance = "permutation",
   seed       = 123
 )
-rf_kombinovani # nad celim skupom podataka
+rf_kombinovani
 
 moda <- function(v) {
   uniqv <- unique(na.omit(v))
@@ -1140,7 +1140,6 @@ karta_cene_pred_uvecano <- ggplot() +
   scale_y_continuous(labels = scales::label_number(big.mark = ".", decimal.mark = ",")) +
   theme_minimal() +
   theme(plot.title = element_text(face = "bold", hjust = 0.5))
-karta_cene_pred_uvecano
 
 uvecano_lok_prem <- st_crop(sf_fikt, centar_cenam2)
 karta_lok_prem_uvecano <- ggplot() +
