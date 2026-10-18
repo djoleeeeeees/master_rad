@@ -85,7 +85,7 @@ p_karta <- ggplot() +
 p_karta
 ggsave("slike/karta_cena_m2.png", plot = p_karta, width = 9, height = 7, dpi = 150)
 
-# 4.2.1. Karta prostorne raspodele cene/m2 UVEĆANO
+# 4.2.1. Karta prostorne raspodele cene/m2 (uvećano)
 centar_cenam2 <- st_bbox(c(
   xmin = 442000, ymin = 4950000, 
   xmax = 468000, ymax = 4968000
@@ -113,10 +113,10 @@ uvecano_cenam2
 ggsave("slike/uvecano_cenam2.png", plot = uvecano_cenam2, width = 9, height = 7, dpi = 150)
 
    # 4.3 Globalni Moran's I – prostorna autokorelacija cene
-coords  <- st_coordinates(sf_df)
-knn8    <- knearneigh(coords, k = 8) # 8 najbližih suseda
-nb      <- knn2nb(knn8)
-listw   <- nb2listw(nb, style = "W")
+coords <- st_coordinates(sf_df)
+knn8 <- knearneigh(coords, k = 8)
+nb <- knn2nb(knn8)
+listw <- nb2listw(nb, style = "W")
 
 moran_cena <- moran.test(sf_df$Cena_m2, listw, zero.policy = TRUE)
 moran_cena
@@ -170,7 +170,7 @@ stanovi_ag <- stanovi_ag %>%
     km_skole = rast_skole_ag / 1000,
     km_verski_objekti = rast_verski_objekti_ag / 1000,
     km_stajalista = rast_stajalista_ag / 1000,
-    km_parkovi  = rast_parkovi_ag / 1000,
+    km_parkovi = rast_parkovi_ag / 1000,
     km_sume = rast_sume_ag / 1000,
     km_vode = rast_vode_ag / 1000
   )
@@ -377,7 +377,7 @@ ggsave(
   height = 10,
   dpi = 300
 )
-   # 4.6. Spirmanova korelacija ( CENA M2 VS RASTOJANJA X 9)
+   # 4.6. Spirmanova korelacija
 
 vars_korelacija <- stanovi_ag %>%
   select(
@@ -392,7 +392,6 @@ vars_korelacija <- stanovi_ag %>%
     km_vode,
     km_vrtici
   )
-
 cor_matrix <- cor(vars_korelacija, use = "complete.obs", method = "spearman")
 
 sp_corr <- ggcorrplot(
@@ -434,7 +433,7 @@ prom_stan <- c("Kvadratura","Broj_soba","Tip_objekta","Stanje_objekta",
                "Potkrovlje", "Terasa","Francuski_balkon","Lođa",
                "Klima","Lift","Podrum","Topla_voda","Telefon","KATV","Internet",
                "Interfon","Video_nadzor","Kamin","Garaža","Parking","Sa_baštom"
-) # karakteristike stana
+)
 
 prom_lok <- c("Y","X", "Opština", "Naselje","Ulica", grep("^rast_.*_ag$", names(stanovi_ag), value = TRUE))
 
@@ -475,7 +474,7 @@ metrike <- function(y_true, pred_val){
 
 set.seed(123)
 
-# 5.5. Slučajna kros validacija
+# 5.5. Slučajna unakrsna validacija
 n <- nrow(podaci)
 fold_rnd <- sample(rep(1:5, length.out = n))
 
@@ -515,8 +514,8 @@ print(rez_sp)
 # 5.7. XGBoost algoritam Prostorne CV
 
 X_stan <- model.matrix(~ . - 1, data = podaci[, prom_stan], na.action = pass)
-X_lok  <- model.matrix(~ . - 1, data = podaci[, prom_lok],  na.action = pass)
-X_all  <- model.matrix(~ . - 1, data = podaci[, c(prom_stan, prom_lok)], na.action = pass)
+X_lok <- model.matrix(~ . - 1, data = podaci[, prom_lok],  na.action = pass)
+X_all <- model.matrix(~ . - 1, data = podaci[, c(prom_stan, prom_lok)], na.action = pass)
 
 y <- podaci$y_cena
 
@@ -684,33 +683,6 @@ ggsave("slike/grafikon_r2.png", plot = p_r2, width = 8, height = 6, dpi = 300)
 ggsave("slike/grafikon_mae.png", plot = p_mae, width = 8, height = 6, dpi = 300)
 ggsave("slike/grafikon_rmse.png", plot = p_rmse, width = 8, height = 6, dpi = 300)
 
-# Vizuelizacija preklopa za prostornu  validaciju
-viz_fold <- factor(paste("Preklop", fold_sp), 
-                   levels = paste("Preklop", 1:5))
-p_cv <- ggplot(sf_df) +
-  geom_sf(aes(color = viz_fold), size = 0.8, alpha = 0.7) +
-  geom_sf(data = beograd_granice, fill = NA, color = "black", size = 0.4) +
-  scale_color_brewer(palette = "Set1", name = "Prostorni preklop") +
-  labs(
-    title = "Prostorna unakrsna validacija",
-    subtitle = "Raspodela lokacija nekretnina po prostornim preklopima",
-    x = NULL,
-    y = NULL
-  ) +
-  coord_sf(datum = 32634) +
-  scale_x_continuous(labels = scales::label_number(big.mark = ".", decimal.mark = ",")) +
-  scale_y_continuous(labels = scales::label_number(big.mark = ".", decimal.mark = ",")) +
-  theme_minimal(base_size = 11) +
-  theme(
-    plot.title = element_text(face = "bold", size = 14, hjust = 0.5),
-    plot.subtitle = element_text(hjust = 0.5, color = "grey30"),
-    legend.position = "right",
-    panel.grid.minor = element_blank()
-  )
-
-print(p_cv)
-ggsave("slike/prostorni_foldovi.png", plot = p_cv, width = 8, height = 6, dpi = 300)
-
 ## ---------------------------------------------------------------------------
 ## 6. Značaj promenljivih
 
@@ -739,32 +711,32 @@ ggsave("slike/znacaj_promenljivih.png", plot = p_imp, width = 8, height = 5.5, d
 ## 7. Globalni moran's I indeks (RF i XGBoost - Prostorna CV)
 
 rez_rnd_stan <- podaci$Cena_m2 - pred_stan_rnd
-rez_rnd_lok  <- podaci$Cena_m2 - pred_lok_rnd
-rez_rnd_pun  <- podaci$Cena_m2 - pred_all_rnd
+rez_rnd_lok <- podaci$Cena_m2 - pred_lok_rnd
+rez_rnd_pun <- podaci$Cena_m2 - pred_all_rnd
 
 rez_rf_stan <- podaci$Cena_m2 - pred_stan_sp
-rez_rf_lok  <- podaci$Cena_m2 - pred_lok_sp
-rez_rf_pun  <- podaci$Cena_m2 - pred_all_sp
+rez_rf_lok <- podaci$Cena_m2 - pred_lok_sp
+rez_rf_pun <- podaci$Cena_m2 - pred_all_sp
 
 rez_xgb_stan <- podaci$Cena_m2 - pred_stan_sp_xgb
-rez_xgb_lok  <- podaci$Cena_m2 - pred_lok_sp_xgb
-rez_xgb_pun  <- podaci$Cena_m2 - pred_all_sp_xgb
+rez_xgb_lok <- podaci$Cena_m2 - pred_lok_sp_xgb
+rez_xgb_pun <- podaci$Cena_m2 - pred_all_sp_xgb
 
 moran_rnd_stan <- moran.test(rez_rnd_stan, listw, zero.policy = TRUE)
-moran_rnd_lok  <- moran.test(rez_rnd_lok,  listw, zero.policy = TRUE)
-moran_rnd_pun  <- moran.test(rez_rnd_pun,  listw, zero.policy = TRUE)
+moran_rnd_lok <- moran.test(rez_rnd_lok,  listw, zero.policy = TRUE)
+moran_rnd_pun <- moran.test(rez_rnd_pun,  listw, zero.policy = TRUE)
 
 moran_rf_stan <- moran.test(rez_rf_stan, listw, zero.policy = TRUE)
-moran_rf_lok  <- moran.test(rez_rf_lok,  listw, zero.policy = TRUE)
-moran_rf_pun  <- moran.test(rez_rf_pun,  listw, zero.policy = TRUE)
+moran_rf_lok <- moran.test(rez_rf_lok,  listw, zero.policy = TRUE)
+moran_rf_pun <- moran.test(rez_rf_pun,  listw, zero.policy = TRUE)
 
 moran_xgb_stan <- moran.test(rez_xgb_stan, listw, zero.policy = TRUE)
-moran_xgb_lok  <- moran.test(rez_xgb_lok,  listw, zero.policy = TRUE)
-moran_xgb_pun  <- moran.test(rez_xgb_pun,  listw, zero.policy = TRUE)
+moran_xgb_lok <- moran.test(rez_xgb_lok,  listw, zero.policy = TRUE)
+moran_xgb_pun <- moran.test(rez_xgb_pun,  listw, zero.policy = TRUE)
 
 morans_globalni <- data.frame(
   Model = c("Samo stan", "Samo lokacija", "Stan + lokacija"),
-  `RF_Rnd_I` = round(c(moran_rnd_stan$estimate[1], moran_rnd_lok$estimate[1], moran_rnd_pun$estimate[1]), 3),
+  `RF_Rnd_I`= round(c(moran_rnd_stan$estimate[1], moran_rnd_lok$estimate[1], moran_rnd_pun$estimate[1]), 3),
   `RF_Sp_I` = round(c(moran_rf_stan$estimate[1], moran_rf_lok$estimate[1], moran_rf_pun$estimate[1]), 3),
   `XGB_Sp_I`= round(c(moran_xgb_stan$estimate[1], moran_xgb_lok$estimate[1], moran_xgb_pun$estimate[1]), 3)
 
@@ -776,7 +748,7 @@ write.csv(morans_globalni, "exceli/morans_globalni.csv", row.names = FALSE)
 
 # Vizuelizacija
 sf_df$rezidual_rf_rnd <- podaci$Cena_m2 - pred_all_rnd
-sf_df$rezidual_rf_sp  <- podaci$Cena_m2 - pred_all_sp
+sf_df$rezidual_rf_sp <- podaci$Cena_m2 - pred_all_sp
 sf_df$rezidual_xgb_sp <- podaci$Cena_m2 - pred_all_sp_xgb
 
 p1_mi <- ggplot(sf_df) +
@@ -977,11 +949,11 @@ prom_comb <- c(prom_stan, prom_lok) # 48
 form_comb <- as.formula(paste("Cena_m2 ~", paste(sprintf("`%s`", prom_comb), collapse = " + ")))
 
 rf_kombinovani <- ranger(
-  formula    = form_comb,
-  data       = stanovi_ag,
-  num.trees  = 500,
+  formula = form_comb,
+  data = stanovi_ag,
+  num.trees = 500,
   importance = "permutation",
-  seed       = 123
+  seed = 123
 )
 rf_kombinovani
 
@@ -1115,7 +1087,7 @@ range(sf_fikt$premijum_proc, na.rm = TRUE)
 sf_fikt[which.min(sf_fikt$premijum_proc), ]
 sf_fikt[which.max(sf_fikt$premijum_proc), ]
 
-# Vizuelizacija UVEĆANO
+# Vizuelizacija (uvećano)
 centar_cenam2 <- st_bbox(c(
   xmin = 442000, ymin = 4950000,  
   xmax = 468000, ymax = 4968000
