@@ -758,7 +758,7 @@ p1_mi <- ggplot(sf_df) +
     low = "#2166ac", mid = "white", high = "#b2182b", midpoint = 0,
     limits = c(-1500, 1500), 
     oob = scales::squish,
-    name = "Rezidual (EUR)",
+    name = "Rezidual (€/m²)",
     guide = guide_colorbar(
       barwidth = unit(6, "cm"), 
       barheight = unit(0.6, "cm"), 
@@ -784,7 +784,7 @@ p2_mi <- ggplot(sf_df) +
     low = "#2166ac", mid = "white", high = "#b2182b", midpoint = 0,
     limits = c(-1500, 1500), 
     oob = scales::squish,
-    name = "Rezidual (EUR)",
+    name = "Rezidual (€/m²)",
     guide = guide_colorbar(
       barwidth = unit(6, "cm"), 
       barheight = unit(0.6, "cm"), 
@@ -810,7 +810,7 @@ p3_mi <- ggplot(sf_df) +
     low = "#2166ac", mid = "white", high = "#b2182b", midpoint = 0,
     limits = c(-1500, 1500), 
     oob = scales::squish,
-    name = "Rezidual (EUR)",
+    name = "Rezidual (€/m²)",
     guide = guide_colorbar(
       barwidth = unit(6, "cm"), 
       barheight = unit(0.6, "cm"), 
@@ -847,7 +847,7 @@ p1_mi_uvecano <- ggplot() +
     low = "#2166ac", mid = "grey90", high = "#b2182b", midpoint = 0,
     limits = c(-1500, 1500),
     oob = scales::squish,
-    name = "Rezidual (EUR)",
+    name = "Rezidual (€/m²)",
     guide = guide_colorbar(
       barwidth = unit(6, "cm"), 
       barheight = unit(0.6, "cm"), 
@@ -876,7 +876,7 @@ p2_mi_uvecano <- ggplot() +
     low = "#2166ac", mid = "grey90", high = "#b2182b", midpoint = 0,
     limits = c(-1500, 1500),
     oob = scales::squish,
-    name = "Rezidual (EUR)",
+    name = "Rezidual (€/m²)",
     guide = guide_colorbar(
       barwidth = unit(6, "cm"), 
       barheight = unit(0.6, "cm"), 
@@ -905,7 +905,7 @@ p3_mi_uvecano <- ggplot() +
     low = "#2166ac", mid = "grey90", high = "#b2182b", midpoint = 0,
     limits = c(-1500, 1500),
     oob = scales::squish,
-    name = "Rezidual (EUR)",
+    name = "Rezidual (€/m²)",
     guide = guide_colorbar(
       barwidth = unit(6, "cm"), 
       barheight = unit(0.6, "cm"), 
@@ -1172,171 +1172,110 @@ interakt_prem
 mapshot(interakt_prem, file = normalizePath("web/interakt_prem.html", mustWork = FALSE))
 saveWidget(interakt_prem@map, "web/interakt_prem.html", selfcontained = TRUE)
 
-# Dijag rasejanja
-dg8_centar <- ggplot(fikt_stan, aes(x = rast_centar_ag / 1000, y = premijum_proc)) +
-  geom_point(color = "#2b8cbe", alpha = 0.5, size = 1.5) +
-  geom_smooth(method = "loess", span = 1.2, color = "#bd0026", fill = "#fcae91", linewidth = 1, se = TRUE) +
-  labs(
-    title = "Uticaj udaljenosti od centra na lokacijski premijum",
-    x = "Udaljenost od centra (km)",
-    y = "Lokacijski premijum (%)"
-  ) +
-  theme_minimal(base_size = 12) +
-  theme(
-    plot.title = element_text(face = "bold", hjust = 0.5, size = 13),
-    axis.title = element_text(face = "bold"),
-    panel.grid.major = element_line(color = "grey90"),
-    panel.grid.minor = element_blank()
-  )
+graf_prem <- function(df_fikt, kol_rast, x_osa) {
+  vrednosti <- df_fikt %>%
+    transmute(
+      udaljenost_km = .data[[kol_rast]] / 1000,
+      premijum_proc
+    )
+  gornja_granica <- ceiling(max(vrednosti$udaljenost_km)) + 1
+  intervali <- vrednosti %>%
+    mutate(
+      interval = cut(
+        udaljenost_km,
+        breaks = seq(0, gornja_granica, by = 0.5),
+        include.lowest = TRUE,
+        right = FALSE
+      )
+    ) %>%
+    filter(!is.na(interval)) %>%
+    group_by(interval) %>%
+    summarise(
+      medijana_prem = median(premijum_proc),
+      broj_lokacija = n(),
+      sred_int = mean(udaljenost_km),
+      .groups = "drop"
+    )
+  ggplot(intervali, aes(x = sred_int, y = medijana_prem)) +
+    geom_hline(
+      yintercept = 0,
+      linetype = "dashed",
+      color = "grey60"
+    ) +
+    geom_line(color = "#2b8cbe", linewidth = 0.8) +
+    geom_point(color = "#bd0026", size = 2.5) +
+    geom_text(
+      aes(label = paste0("N = ", broj_lokacija)),
+      vjust = -0.6,
+      hjust = -0.1,
+      size = 3,
+      color = "grey30",
+      check_overlap = TRUE
+    ) +
+    scale_y_continuous(
+      expand = expansion(mult = c(0.15, 0.2))
+    ) +
+    scale_x_continuous(
+      expand = expansion(mult = c(0.02, 0.12))
+    ) +
+    labs(
+      x = x_osa,
+      y = "Medijana lokacijskog premijuma (%)"
+    ) +
+    theme_minimal(base_size = 12) +
+    theme(
+      axis.title = element_text(face = "bold"),
+      panel.grid.major = element_line(color = "grey90"),
+      panel.grid.minor = element_blank()
+    )
+}
+
+dg8_centar <- graf_prem(
+  fikt_stan, "rast_centar_ag",
+  "Udaljenost od centra (km)"
+)
 dg8_centar
-ggsave("slike/dg8_centar.png", plot = dg8_centar, width = 9, height = 5.5, dpi = 140)
+dg8_muzeji_pozorista <- graf_prem(
+  fikt_stan, "rast_muzeji_pozorista_ag",
+  "Udaljenost od ustanova kulture (km)"
+)
 
-dg8_muzeji_pozorista <- ggplot(fikt_stan, aes(x = rast_muzeji_pozorista_ag / 1000, y = premijum_proc)) +
-  geom_point(color = "#2b8cbe", alpha = 0.5, size = 1) +
-  geom_smooth(method = "loess", span = 1.2, color = "#bd0026", fill = "#fcae91", linewidth = 1, se = TRUE) +
-  labs(
-    title = "Uticaj udaljenosti od ustanova kulture na lokacijski premijum",
-    x = "Udaljenost od ustanova kulture (km)",
-    y = "Lokacijski premijum (%)"
-  ) +
-  theme_minimal(base_size = 12) +
-  theme(
-    plot.title = element_text(face = "bold", hjust = 0.5, size = 13),
-    axis.title = element_text(face = "bold"),
-    panel.grid.major = element_line(color = "grey90"),
-    panel.grid.minor = element_blank()
-  )
-dg8_muzeji_pozorista
-ggsave("slike/dg8_muzeji_pozorista.png", plot = dg8_muzeji_pozorista, width = 9, height = 5.5, dpi = 140)
+dg8_vrtici <- graf_prem(
+  fikt_stan, "rast_vrtici_ag",
+  "Udaljenost od vrtića (km)"
+)
 
-dg8_vrtici <- ggplot(fikt_stan, aes(x = rast_vrtici_ag / 1000, y = premijum_proc)) +
-  geom_point(color = "#2b8cbe", alpha = 0.5, size = 1) +
-  geom_smooth(method = "loess", span = 1.2, color = "#bd0026", fill = "#fcae91", linewidth = 1, se = TRUE) +
-  labs(
-    title = "Uticaj udaljenosti od vrtića na lokacijski premijum",
-    x = "Udaljenost od vrtića (km)",
-    y = "Lokacijski premijum (%)"
-  ) +
-  theme_minimal(base_size = 12) +
-  theme(
-    plot.title = element_text(face = "bold", hjust = 0.5, size = 13),
-    axis.title = element_text(face = "bold"),
-    panel.grid.major = element_line(color = "grey90"),
-    panel.grid.minor = element_blank()
-  )
-dg8_vrtici
-ggsave("slike/dg8_vrtici.png", plot = dg8_vrtici, width = 9, height = 5.5, dpi = 140)
+dg8_skole <- graf_prem(
+  fikt_stan, "rast_skole_ag",
+  "Udaljenost od škola (km)"
+)
 
-dg8_skole <- ggplot(fikt_stan, aes(x = rast_skole_ag / 1000, y = premijum_proc)) +
-  geom_point(color = "#2b8cbe", alpha = 0.5, size = 1) +
-  geom_smooth(method = "loess", span = 1.2, color = "#bd0026", fill = "#fcae91", linewidth = 1, se = TRUE) +
-  labs(
-    title = "Uticaj udaljenosti od škola na lokacijski premijum",
-    x = "Udaljenost od škola (km)",
-    y = "Lokacijski premijum (%)"
-  ) +
-  theme_minimal(base_size = 12) +
-  theme(
-    plot.title = element_text(face = "bold", hjust = 0.5, size = 13),
-    axis.title = element_text(face = "bold"),
-    panel.grid.major = element_line(color = "grey90"),
-    panel.grid.minor = element_blank()
-  )
-dg8_skole
-ggsave("slike/dg8_skole.png", plot = dg8_skole, width = 9, height = 5.5, dpi = 140)
+dg8_verski_objekti <- graf_prem(
+  fikt_stan, "rast_verski_objekti_ag",
+  "Udaljenost od verskih objekata (km)"
+)
 
-dg8_verski_objekti <- ggplot(fikt_stan, aes(x = rast_verski_objekti_ag / 1000, y = premijum_proc)) +
-  geom_point(color = "#2b8cbe", alpha = 0.5, size = 1) +
-  geom_smooth(method = "loess", span = 1.2, color = "#bd0026", fill = "#fcae91", linewidth = 1, se = TRUE) +
-  labs(
-    title = "Uticaj udaljenosti od verskih objekata na lokacijski premijum",
-    x = "Udaljenost od verskih objekata (km)",
-    y = "Lokacijski premijum (%)"
-  ) +
-  theme_minimal(base_size = 12) +
-  theme(
-    plot.title = element_text(face = "bold", hjust = 0.5, size = 13),
-    axis.title = element_text(face = "bold"),
-    panel.grid.major = element_line(color = "grey90"),
-    panel.grid.minor = element_blank()
-  )
-dg8_verski_objekti
-ggsave("slike/dg8_verski_objekti.png", plot = dg8_verski_objekti, width = 9, height = 5.5, dpi = 140)
+dg8_stajalista <- graf_prem(
+  fikt_stan, "rast_stajalista_ag",
+  "Udaljenost od stajališta (km)"
+)
 
-dg8_stajalista <- ggplot(fikt_stan, aes(x = rast_stajalista_ag / 1000, y = premijum_proc)) +
-  geom_point(color = "#2b8cbe", alpha = 0.5, size = 1) +
-  geom_smooth(method = "loess", span = 1.2, color = "#bd0026", fill = "#fcae91", linewidth = 1, se = TRUE) +
-  labs(
-    title = "Uticaj udaljenosti od stajališta na lokacijski premijum",
-    x = "Udaljenost od stajališta (km)",
-    y = "Lokacijski premijum (%)"
-  ) +
-  theme_minimal(base_size = 12) +
-  theme(
-    plot.title = element_text(face = "bold", hjust = 0.5, size = 13),
-    axis.title = element_text(face = "bold"),
-    panel.grid.major = element_line(color = "grey90"),
-    panel.grid.minor = element_blank()
-  )
-dg8_stajalista
-ggsave("slike/dg8_stajalista.png", plot = dg8_stajalista, width = 9, height = 5.5, dpi = 140)
+dg8_parkovi <- graf_prem(
+  fikt_stan, "rast_parkovi_ag",
+  "Udaljenost od parkova (km)"
+)
 
-dg8_parkovi <- ggplot(fikt_stan, aes(x = rast_parkovi_ag / 1000, y = premijum_proc)) +
-  geom_point(color = "#2b8cbe", alpha = 0.5, size = 1) +
-  geom_smooth(method = "loess", span = 1.2, color = "#bd0026", fill = "#fcae91", linewidth = 1, se = TRUE) +
-  labs(
-    title = "Uticaj udaljenosti od parkova na lokacijski premijum",
-    x = "Udaljenost od parkova (km)",
-    y = "Lokacijski premijum (%)"
-  ) +
-  theme_minimal(base_size = 12) +
-  theme(
-    plot.title = element_text(face = "bold", hjust = 0.5, size = 13),
-    axis.title = element_text(face = "bold"),
-    panel.grid.major = element_line(color = "grey90"),
-    panel.grid.minor = element_blank()
-  )
-dg8_parkovi
-ggsave("slike/dg8_parkovi.png", plot = dg8_parkovi, width = 9, height = 5.5, dpi = 140)
+dg8_sume <- graf_prem(
+  fikt_stan, "rast_sume_ag",
+  "Udaljenost od šuma (km)"
+)
 
-dg8_sume <- ggplot(fikt_stan, aes(x = rast_sume_ag / 1000, y = premijum_proc)) +
-  geom_point(color = "#2b8cbe", alpha = 0.5, size = 1) +
-  geom_smooth(method = "loess", span = 1.2, color = "#bd0026", fill = "#fcae91", linewidth = 1, se = TRUE) +
-  labs(
-    title = "Uticaj udaljenosti od šuma na lokacijski premijum",
-    x = "Udaljenost od šuma (km)",
-    y = "Lokacijski premijum (%)"
-  ) +
-  theme_minimal(base_size = 12) +
-  theme(
-    plot.title = element_text(face = "bold", hjust = 0.5, size = 13),
-    axis.title = element_text(face = "bold"),
-    panel.grid.major = element_line(color = "grey90"),
-    panel.grid.minor = element_blank()
-  )
-dg8_sume
-ggsave("slike/dg8_sume.png", plot = dg8_sume, width = 9, height = 5.5, dpi = 140)
+dg8_vode <- graf_prem(
+  fikt_stan, "rast_vode_ag",
+  "Udaljenost od vode (km)"
+)
 
-dg8_vode <- ggplot(fikt_stan, aes(x = rast_vode_ag / 1000, y = premijum_proc)) +
-  geom_point(color = "#2b8cbe", alpha = 0.5, size = 1) +
-  geom_smooth(method = "loess", span = 1.2, color = "#bd0026", fill = "#fcae91", linewidth = 1, se = TRUE) +
-  labs(
-    title = "Uticaj udaljenosti od vode na lokacijski premijum",
-    x = "Udaljenost od vode (km)",
-    y = "Lokacijski premijum (%)"
-  ) +
-  theme_minimal(base_size = 12) +
-  theme(
-    plot.title = element_text(face = "bold", hjust = 0.5, size = 13),
-    axis.title = element_text(face = "bold"),
-    panel.grid.major = element_line(color = "grey90"),
-    panel.grid.minor = element_blank()
-  )
-dg8_vode
-ggsave("slike/dg8_vode.png", plot = dg8_vode, width = 9, height = 5.5, dpi = 140)
-
-# svih 9 dijagrama
-dg8_svi <- 
+dg8_svi <-  
   (dg8_centar | dg8_muzeji_pozorista | dg8_vrtici) /
   (dg8_skole | dg8_verski_objekti | dg8_stajalista) /
   (dg8_parkovi | dg8_sume | dg8_vode)
